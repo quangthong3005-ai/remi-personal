@@ -506,7 +506,13 @@ body.sheet-open .sheet{pointer-events:auto}
 .wsum b{font-size:17px;color:var(--ai-text)}
 .wsum span{font-size:13px;color:var(--muted);line-height:1.4}
 .eng{display:block;font-weight:500;font-size:12px;opacity:.8;margin-top:2px}
-@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}</style>
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}.evrow{display:flex;gap:10px;align-items:flex-start;margin-top:12px;padding:10px;border:1.5px solid var(--line);border-radius:16px;background:var(--bg)}
+.evtick{display:grid;place-items:center;width:34px;height:46px;flex:none}
+.evtick input{width:22px;height:22px;accent-color:var(--accent)}
+.evmain{flex:1;min-width:0;display:grid;gap:8px}
+.evmain input{width:100%;height:44px;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:0 12px;font-size:16px;min-width:0}
+.sbtns .pri:disabled{opacity:.5}
+</style>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
@@ -532,6 +538,10 @@ body.sheet-open .sheet{pointer-events:auto}
       <span class="spark" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7L12 2zm7 12l1 2.9 2.9 1-2.9 1-1 2.9-1-2.9-2.9-1 2.9-1 1-2.9z"/></svg></span>
       <textarea id="ta" rows="1" aria-label="Nói hoặc gõ điều bạn cần nhớ"></textarea>
       <div class="cbtns">
+        <button class="icon-btn" id="cam" aria-label="Gửi ảnh: lịch hoặc món ăn" type="button">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 012-2h1.5l1.2-2h6.6l1.2 2H18a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        </button>
+        <input type="file" id="camfile" accept="image/*" hidden>
         <button class="icon-btn" id="mic" aria-label="Nói bằng giọng" type="button">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v4"/></svg>
         </button>
@@ -1317,6 +1327,7 @@ function buildPrompt(text){
 '- task: "when" là lúc việc diễn ra, luôn là mốc gần nhất SAU bây giờ. Nếu nói “7h” cho nấu ăn/bữa tối/đi chợ chiều thì hiểu là 19:00; việc buổi sáng thì 07:00. Nếu không nói giờ, chọn giờ hợp lý và ghi rõ trong assumption.\n'+
 '- leadMinutes: nếu người dùng nói nhắc trước thì dùng đúng; nếu việc cần chuẩn bị (đi chợ, nấu ăn, di chuyển, họp) tự đề xuất 30–60; còn lại 0.\n'+
 '- shopping=true khi là đi chợ/mua sắm/nấu ăn cần mua nguyên liệu. Khi đó checklist là các GỢI Ý nguyên liệu hoặc đồ cần mua kèm định lượng ngắn (cho 3–4 người nếu không nói số người, tối đa 8 mục; nếu không rõ món thì để mảng rỗng). Việc khác: shopping=false, checklist là mảng rỗng.\n'+
+'- Khi người dùng nói MUỐN NẤU một món (ví dụ “tối nay tôi muốn nấu phở bò”, “mai nấu cà ri”): intent=task, shopping=true, title dạng “Đi chợ nấu <món>”, checklist là nguyên liệu đầy đủ của món. “when” là GIỜ ĐI CHỢ gợi ý, không phải giờ nấu: mặc định nấu lúc 18:30 nên đi chợ lúc 16:30 (trước giờ nấu khoảng 2 tiếng); nếu người dùng nêu giờ nấu/ăn thì trừ đi 2 tiếng; nếu giờ đi chợ đó đã qua thì chọn mốc sớm nhất còn lại hôm nay (tối thiểu 30 phút nữa), nếu quá muộn trong ngày thì sang 16:30 hôm sau. leadMinutes=30. assumption ghi giờ nấu, ví dụ “nấu 18:30”.\n'+
 '- servings: số người ăn mà định lượng trong checklist tính cho (lấy từ câu nói, ví dụ “nấu cho 6 người”; không nói thì 4). Định lượng luôn ghi dạng số + đơn vị, ví dụ “500 g”, “3 củ”, “1 gói”, “1,5 lít”, để app tăng giảm được.\n'+
 '- tips: tối đa 2 mẹo, mỗi mẹo dưới 10 từ; việc liên quan sức khỏe thì không đưa lời khuyên dài.\n'+
 '- habit: recurring=true CHỈ khi người dùng nói rõ lặp lại (“mỗi ngày”, “hằng ngày”, “mỗi tuần”, “thứ 2, 4, 6”...). Nếu không nói gì thêm thì recurring=false (chỉ hôm nay). times là mốc nhắc HH:mm: nếu người dùng nêu giờ thì dùng đúng giờ đó; việc làm 1 lần (giãn cơ, thiền) không nêu giờ thì chọn 1 mốc hợp lý. days (0=Chủ nhật … 6=Thứ bảy): “thứ 2, 4, 6” = [1,3,5], “cuối tuần” = [6,0], mặc định đủ 7 ngày. Với việc chia nhỏ theo lượng (uống nước) dùng spread {"count":số lần,"from":"now"|"wake"|"HH:mm","to":"bed"|"HH:mm"} và times=[]: mỗi lần uống 250 ml nên count = số lít × 4 (1,5 lít = 6). from="now" nếu nói “từ bây giờ/từ đây”, from="wake" nếu lặp lại mỗi ngày; to là giờ người dùng nêu (“đến 9h tối” = "21:00") hoặc "bed". Nếu người dùng chia lượng nước thành N lần trong khoảng giờ A đến B (ví dụ “1 lít chia 4 lần từ 1h-5h”) thì spread {"count":N,"from":"13:00","to":"17:00"} (giờ 1 đến 5 không nói gì thêm hiểu là buổi chiều), times=[], và habit.ml là TỔNG lượng nước bằng ml (1 lít = 1000). Ví dụ “giãn cơ 5 phút mỗi ngày” → title “Giãn cơ 5 phút”, recurring true.\n'+
@@ -1375,12 +1386,19 @@ let busy=false;
 async function submit(textArg){
   const text=(typeof textArg==='string'?textArg:$('#ta').value).trim();
   if(!text||busy)return;
+  if(shouldSmart(text)&&store.get('nhip.aimode','auto')!=='local'&&(window.claude||store.get('nhip.aikey',''))){return smartFlow(text,null)}
+  return submitSingle(text);
+}
+async function submitSingle(textArg){
+  const text=(typeof textArg==='string'?textArg:$('#ta').value).trim();
+  if(!text||busy)return;
   busy=true;$('#composer').classList.add('busy');$('#send').disabled=true;
   let parsed=null;
       try{
         const r=await understand(text);
         parsed=normalize(r.data,text);
         parsed.engine=r.engine;parsed.why=r.why||'';
+        if(r.engine==='claude'&&parsed.intent==='task'&&parsed.shopping&&/^đi chợ nấu/i.test(parsed.title))parsed.preselect=true;
         if(r.engine==='local'&&parsed.intent==='task'&&parsed.when)parsed.assumption=hm(new Date(parsed.when))+' '+dayLabel(new Date(parsed.when)).toLowerCase();
       }catch(e){
         alertUser('🤖','Remi chưa hiểu được lúc này',aiHelp(e));
@@ -1394,6 +1412,151 @@ function aiHelp(e){
   if(/rate|limit|quota/i.test(t))return 'Hôm nay AI đã hết lượt, thử lại sau nhé.';
   return 'Thử lại sau ít phút, hoặc dùng các nút tạo nhanh ở trên.';
 }
+
+/* ---------- ảnh và tin nhắn dài: nhiều sự kiện lịch, món ăn ---------- */
+const AI_MODEL='claude-haiku-5-5';
+function shouldSmart(t){
+  if(t.length>140||/\n/.test(t))return true;
+  const m=t.match(/\d{1,2}\s*(?:h|giờ|:)\s*\d{0,2}/gi);
+  return !!(m&&m.length>=2);
+}
+function shopTimeFor(cookH,cookM){
+  const now=new Date(),d=new Date();
+  d.setHours(cookH,cookM,0,0);d.setMinutes(d.getMinutes()-120);
+  if(d<new Date(now.getTime()+30*60000)){
+    const e=new Date(now.getTime()+30*60000);e.setMinutes(Math.ceil(e.getMinutes()/15)*15,0,0);
+    const lim=new Date();lim.setHours(cookH,cookM,0,0);
+    if(e<lim)return e;
+    const n=new Date();n.setDate(n.getDate()+1);n.setHours(16,30,0,0);return n;
+  }
+  return d;
+}
+function smartPrompt(text,hasImage){
+  const now=new Date();
+  return 'Bạn là trợ lý của app quản lý cá nhân “Remi”. Bây giờ là '+WD[now.getDay()]+', '+toLocal(now)+' (giờ địa phương, Việt Nam).\n'+
+(hasImage?'Người dùng gửi kèm MỘT ẢNH':'Người dùng gửi MỘT TIN NHẮN')+(text?' với nội dung chữ:\n"""'+text.replace(/"""/g,'"')+'"""\n':'.\n')+
+'Hãy xác định nội dung và trả về DUY NHẤT một JSON hợp lệ (không markdown, không giải thích):\n'+
+'1) Nếu có thông tin LỊCH (lịch học, lịch họp, lịch làm việc, vé, hẹn, thông báo sự kiện, ảnh chụp màn hình tin nhắn...): {"kind":"events","note":"1 câu rất ngắn","events":[{"title":"tên ngắn gọn, kèm địa điểm nếu có","emoji":"1 emoji","when":"YYYY-MM-DDTHH:mm","leadMinutes":0}]}\n'+
+'2) Nếu là ảnh MÓN ĂN hoặc đồ uống: {"kind":"food","dish":"tên món bằng tiếng Việt","emoji":"1 emoji","servings":2,"confidence":"cao|vừa|thấp","note":"1 câu ngắn","checklist":[{"item":"nguyên liệu","qty":"số + đơn vị, ví dụ 500 g, 3 củ"}]} (tối đa 12 nguyên liệu, tính cho 2 người).\n'+
+'3) Còn lại: {"kind":"other"}\n'+
+'Quy tắc: mỗi sự kiện một mục; ngày thiếu năm thì lấy mốc gần nhất SAU bây giờ; “thứ 6 tuần sau”, “mai”, “hôm nay” tính theo bây giờ; giờ không rõ thì chọn giờ hợp lý (học/họp sáng 08:00, buổi tối 19:00). Không bịa sự kiện không có trong nội dung. leadMinutes: việc cần đi lại hoặc chuẩn bị đề xuất 30–60, còn lại 0. Mọi chữ tiếng Việt, ngắn gọn.';
+}
+async function askClaudeContent(key,content,maxTok){
+  let r;
+  try{
+    r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:AI_MODEL,max_tokens:maxTok||1800,messages:[{role:'user',content:content}]})});
+  }catch(e){throw {code:'network',message:'Không kết nối được AI'}}
+  if(!r.ok)throw {code:'http_'+r.status,message:'AI trả về lỗi '+r.status};
+  const j=await r.json();
+  return extractJSON((j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join(''));
+}
+function readImage(file){
+  return new Promise((ok,no)=>{
+    const url=URL.createObjectURL(file),img=new Image();
+    img.onload=()=>{
+      const max=1280,k=Math.min(1,max/Math.max(img.width,img.height));
+      const c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(url);
+      ok(c.toDataURL('image/jpeg',0.82).split(',')[1]);
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);no(new Error('img'))};
+    img.src=url;
+  });
+}
+function setBusy(on){busy=on;$('#composer').classList.toggle('busy',on);$('#send').disabled=on}
+async function smartFlow(text,b64){
+  if(busy)return;
+  const mode=store.get('nhip.aimode','auto'),key=store.get('nhip.aikey','');
+  if(mode==='local'||(b64&&!key)){
+    alertUser('🔑',b64?'Cần khóa Claude để đọc ảnh':'Đang bật “Chỉ trên máy”',b64?(mode==='local'?'Bạn đang bật “Chỉ trên máy”. Tắt công tắc này và dán khóa Claude trong Hồ sơ.':'Mở Hồ sơ và dán khóa Claude của bạn. Ảnh sẽ được gửi tới Claude để đọc, không lưu lại.'):'Tắt công tắc này trong Hồ sơ để Remi đọc tin nhắn dài bằng AI.');
+    return;
+  }
+  setBusy(true);
+  let data=null;
+  try{
+    const prompt=smartPrompt(text,!!b64);
+    if(b64){
+      data=await askClaudeContent(key,[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},{type:'text',text:prompt}]);
+    }else{
+      const sample=window.claude?await getSample():null;
+      if(sample){const res=await sample(prompt,{cache:false,modelTier:'quick'});data=extractJSON(res.text)}
+      else if(key)data=await askClaudeContent(key,prompt);
+    }
+  }catch(e){alertUser('🤖','Remi chưa đọc được lúc này',aiHelp(e))}
+  setBusy(false);
+  if(!data){ if(!b64&&text){ smartFallback(text) } return }
+  handleSmart(data,text);
+}
+function smartFallback(text){ // không có AI: dùng luồng một câu như trước
+  const t=text; busy=false; submitSingle(t);
+}
+function handleSmart(d,text){
+  if(d.kind==='events'&&Array.isArray(d.events)&&d.events.length){
+    const ev=d.events.slice(0,30).map(e=>({title:String(e.title||'Sự kiện').slice(0,80),emoji:e.emoji||'📌',when:(e.when&&!isNaN(new Date(e.when)))?toLocal(new Date(e.when)):toLocal(defaultWhen()),lead:Math.max(0,Math.min(1440,parseInt(e.leadMinutes,10)||0))}));
+    if(ev.length===1){
+      const q=normalize({intent:'task',title:ev[0].title,emoji:ev[0].emoji,when:ev[0].when,leadMinutes:ev[0].lead,shopping:false,assumption:'Đọc từ '+(text?'tin nhắn':'ảnh')+' · kiểm tra lại'},ev[0].title);
+      q.engine='claude';return openSheet(q,'ai');
+    }
+    return openEventsSheet(ev,d.note);
+  }
+  if(d.kind==='food'&&d.dish){
+    const cook=shopTimeFor(18,30);
+    const q=normalize({intent:'task',title:'Đi chợ nấu '+String(d.dish).slice(0,50),emoji:'🛒',when:toLocal(cook),leadMinutes:30,shopping:true,servings:parseInt(d.servings,10)||2,
+      checklist:Array.isArray(d.checklist)?d.checklist:[],assumption:'Nhận ra: '+String(d.dish).slice(0,40)+(d.confidence?' ('+d.confidence+')':'')+' · sai thì sửa tên'},d.dish);
+    q.engine='claude';q.fromImage=true;q.preselect=true;
+    openSheet(q,'ai');
+    const row=document.querySelector('#sheet .sbtns');
+    if(row){
+      row.insertAdjacentHTML('beforebegin','<button class="aibtn" id="s-redo" type="button">↻ Sửa tên món ở trên rồi bấm đây để gợi ý lại</button>');
+      $('#s-redo').onclick=()=>{const v=splitTitle($('#f-title').value,'').title.replace(/^đi chợ nấu\s*/i,'').trim();if(!v)return;closeSheet();submit('tối nay tôi muốn nấu '+v)};
+    }
+    return;
+  }
+  alertUser('🤷','Remi chưa thấy lịch hay món ăn',(d&&d.note)||'Thử ảnh rõ hơn, hoặc gõ nội dung vào ô nhập.');
+}
+function openEventsSheet(ev,note){
+  const sh=$('#sheet');
+  let h='<div class="grab"></div><div class="understood"><span aria-hidden="true">📅</span><span>Tìm thấy '+ev.length+' sự kiện'+(note?' · '+esc(note):'')+'. Sửa hoặc bỏ tick mục không cần.</span></div>';
+  h+=ev.map((e,i)=>'<div class="evrow" data-i="'+i+'"><label class="evtick"><input type="checkbox" class="ev-on" checked aria-label="Thêm sự kiện này"></label>'+
+    '<div class="evmain"><input class="ev-title" value="'+esc(e.emoji+' '+e.title)+'" aria-label="Tên sự kiện"><input class="ev-when" type="datetime-local" value="'+esc(e.when)+'" aria-label="Ngày giờ"></div></div>').join('');
+  h+='<div class="sbtns"><button class="sec" id="s-cancel" type="button">Huỷ</button><button class="pri" id="s-ok" type="button">Thêm '+ev.length+' sự kiện</button></div>';
+  sh.innerHTML=h;
+  document.body.classList.add('sheet-open');
+  draft=null;
+  const upd=()=>{const n=sh.querySelectorAll('.ev-on:checked').length;$('#s-ok').textContent=n?'Thêm '+n+' sự kiện':'Chọn ít nhất 1 mục';$('#s-ok').disabled=!n};
+  sh.querySelectorAll('.ev-on').forEach(c=>c.onchange=upd);
+  $('#s-cancel').onclick=closeSheet;
+  $('#s-ok').onclick=()=>{
+    const rows=[...sh.querySelectorAll('.evrow')].filter(r=>r.querySelector('.ev-on').checked);
+    let first=null;
+    rows.forEach(r=>{
+      const e=ev[+r.dataset.i],st=splitTitle(r.querySelector('.ev-title').value,e.emoji);
+      const w=r.querySelector('.ev-when').value||e.when;
+      state.tasks.push({id:uid(),title:st.title,emoji:st.emoji,when:w,leadMin:e.lead,repeat:'none',summary:'',checklist:[],tips:[],shop:false,done:false});
+      if(!first||w<first)first=w;
+    });
+    if(!rows.length)return;
+    tab=dKey(new Date(first))<=dKey(new Date())?'today':'soon';
+    closeSheet();save();render();tick();toast('Đã thêm '+rows.length+' sự kiện vào lịch');
+    window.scrollTo({top:0,behavior:'smooth'});
+  };
+}
+(function(){
+  const cam=$('#cam'),file=$('#camfile');
+  if(!cam||!file)return;
+  cam.onclick=()=>file.click();
+  file.onchange=async()=>{
+    const f=file.files&&file.files[0];file.value='';
+    if(!f)return;
+    let b64;
+    try{b64=await readImage(f)}catch(e){alertUser('🖼️','Không mở được ảnh','Thử một ảnh JPG hoặc PNG khác.');return}
+    const t=($('#ta').value||'').trim();
+    smartFlow(t,b64);
+  };
+})();
 
 /* ---------- sheet ---------- */
 let draft=null;
@@ -1645,10 +1808,10 @@ const MY_GROUPS=['Lần trước bạn mua','Remi gợi ý','Bạn đã thêm'];
 function shopItems(p){
   const out=[],seen={},cat={};
   CATALOG.forEach(g=>g[1].forEach(n=>{cat[norm(n)]=1}));
-  const add=(item,qty,group)=>{const k=norm(String(item).trim());if(!k||seen[k])return;seen[k]=1;out.push({item:String(item).trim(),qty:qty||'',group:group,on:false})};
+  const add=(item,qty,group,on)=>{const k=norm(String(item).trim());if(!k||seen[k])return;seen[k]=1;out.push({item:String(item).trim(),qty:qty||'',group:group,on:!!on})};
   const rec=dishRecord(findDish(p.title)),base=p.servings||4;
-  if(rec)rec.items.forEach(x=>add(x.item,scaleQty(x.qty,rec.s?base/rec.s:1),MY_GROUPS[0]));
-  p.checklist.forEach(c=>add(c.item,c.qty,MY_GROUPS[1]));
+  if(rec)rec.items.forEach(x=>add(x.item,scaleQty(x.qty,rec.s?base/rec.s:1),MY_GROUPS[0],p.preselect&&!p.checklist.length));
+  p.checklist.forEach(c=>add(c.item,c.qty,MY_GROUPS[1],p.preselect));
   Object.keys(state.pantry).map(k=>state.pantry[k]).sort((a,b)=>b.n-a.n).forEach(e=>{if(!cat[norm(e.name)])add(e.name,'',MY_GROUPS[2])});
   CATALOG.forEach(g=>g[1].forEach(n=>add(n,'',g[0])));
   return out;
@@ -2260,6 +2423,12 @@ function openProfile(){
     '<div class="two"><div class="field"><label for="p-wake">Thường dậy lúc</label><input type="time" id="p-wake" value="'+esc(profileWake())+'"></div><div class="field"><label for="p-bed">Thường ngủ lúc</label><input type="time" id="p-bed" value="'+esc(profileBed())+'"></div></div>'+
     '<div class="field"><label>Bộ hiểu câu nói</label>'+chipsHtml('p-aim',[['auto','Tự động'],['local','Chỉ trên máy']],aim,'seg3')+'<p class="dhint" id="p-aihint"></p></div>'+
         '<div class="field"><label for="p-key">Khóa Claude (tuỳ chọn)</label><input type="password" id="p-key" autocomplete="off" value="'+esc(store.get('nhip.aikey',''))+'"></div>'+
+        '<div class="field"><label>Thông báo ngoài app</label><p class="dhint" id="p-pushstate"></p>'+
+          '<input id="p-purl" type="url" inputmode="url" autocomplete="off" placeholder="Địa chỉ máy chủ nhắc việc (https://…)" value="'+esc((pushCfg()||{}).url||'')+'" style="margin-bottom:8px">'+
+          '<input id="p-ptoken" type="password" autocomplete="off" placeholder="Mã bí mật" value="'+esc((pushCfg()||{}).token||'')+'">'+
+          '<p class="dhint" id="p-pushmsg" role="status"></p>'+
+          '<div class="sbtns" style="margin-top:8px"><button class="sec" id="p-ptest" type="button">Gửi thử</button><button class="pri" id="p-pon" type="button">Bật thông báo</button></div>'+
+          '<button class="aibtn" id="p-poff" type="button" style="margin-top:8px">Tắt thông báo ngoài app</button></div>'+
         '<div class="prev" id="p-prev"></div>'+
     '<div class="sbtns"><button class="sec" id="p-out" type="button">Đăng xuất</button><button class="pri" id="p-ok" type="button">Lưu</button></div>';
   const upd=()=>{$('#p-prev').textContent='🔔 '+phrase('due','Uống nước',null,$('#p-name').value.trim(),tone)};
@@ -2267,15 +2436,143 @@ function openProfile(){
       const aiHint=()=>{$('#p-aihint').textContent=aim==='local'?'Mọi câu nói được đọc ngay trên máy này, không gửi đi đâu.':(window.claude?'Đang chạy trong Claude nên Remi dùng AI của Claude, không cần khóa. Khi AI lỗi, Remi đọc ngay trên máy.':'Không có khóa thì Remi đọc câu ngay trên máy. Có khóa thì câu nói được gửi tới Claude để hiểu tốt hơn; khóa chỉ lưu trong trình duyệt này.')};
       bindChips('p-aim',v=>{aim=v;aiHint()});aiHint();
       $('#p-name').addEventListener('input',upd);
+  (function(){
+    const msg=t=>{$('#p-pushmsg').textContent=t};
+    showPushState($('#p-pushstate'));
+    $('#p-pon').onclick=async()=>{
+      const b=$('#p-pon');b.disabled=true;msg('Đang bật…');
+      try{await enablePush($('#p-purl').value,$('#p-ptoken').value);msg('Đã bật. Bấm “Gửi thử” để kiểm tra.')}
+      catch(e){msg('⚠️ '+(e&&e.message||'Không bật được'))}
+      b.disabled=false;showPushState($('#p-pushstate'));
+    };
+    $('#p-ptest').onclick=async()=>{msg('Đang gửi thử…');try{await testPush();msg('Đã gửi. Khóa màn hình để xem thông báo.')}catch(e){msg('⚠️ '+(e&&e.message||'Không gửi được'))}};
+    $('#p-poff').onclick=async()=>{await disablePush();msg('Đã tắt.');showPushState($('#p-pushstate'))};
+  })();
   sh.querySelectorAll('.tone').forEach(b=>b.onclick=()=>{tone=b.dataset.tone;sh.querySelectorAll('.tone').forEach(x=>x.classList.toggle('on',x===b));upd()});
   $('#p-ok').onclick=()=>{const v=$('#p-name').value.trim();if(!v){$('#p-name').focus();return}store.set('nhip.aimode',aim);store.set('nhip.aikey',($('#p-key').value||'').trim());state.profile={name:v,tone:tone,wake:$('#p-wake').value||'06:30',bed:$('#p-bed').value||'22:30'};state.habits.forEach(h=>{if(h.spread)h.plan=null});save();closeSheet();tick();render()};
   $('#p-out').onclick=()=>{state.profile=null;save();closeSheet();render();showWelcome()};
   document.body.classList.add('sheet-open');
 }
 
+/* ---------- thông báo đẩy ngoài app (máy chủ Cloudflare riêng, xem thư mục worker/) ---------- */
+const PUSH_KEY='nhip.push',PUSH_STATE='nhip.pushstate';
+const pushCfg=()=>store.get(PUSH_KEY,null);
+const pushBase=c=>String(c.url||'').trim().replace(/\/+$/,'');
+const authH=c=>({'content-type':'application/json',authorization:'Bearer '+c.token});
+const b64uToBytes=v=>{const p=String(v).replace(/-/g,'+').replace(/_/g,'/');const s=atob(p+'='.repeat((4-p.length%4)%4));const o=new Uint8Array(s.length);for(let i=0;i<s.length;i++)o[i]=s.charCodeAt(i);return o};
+const bytesToB64u=b=>{let s='';for(let i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
+function buildReminders(){
+  const out=[],now=Date.now(),horizon=now+14*86400000;
+  const add=(id,at,title,body)=>{if(at>=now-60000&&at<=horizon)out.push({id:id,at:at,title:title,body:body})};
+  state.tasks.forEach(t=>{
+    if(t.done||!t.when)return;
+    let due=new Date(t.when);if(isNaN(due))return;
+    const step=t.repeat==='daily'?1:(t.repeat==='weekly'?7:0);
+    if(step&&due.getTime()<now){const k=Math.ceil((now-due.getTime())/(step*86400000));due.setDate(due.getDate()+k*step)}
+    const lead=t.leadMin||0,n=(t.checklist||[]).length;
+    for(let g=0;g<30&&due.getTime()<=horizon;g++){
+      const ts=due.getTime();
+      if(lead>0)add(t.id+':'+ts+':lead',ts-lead*60000,t.emoji+' '+t.title,'Còn '+leadText(lead)+' nữa'+(n?' · '+n+' mục cần chuẩn bị':''));
+      add(t.id+':'+ts+':due',ts,t.emoji+' '+t.title,'Đến giờ rồi · '+hm(due));
+      if(!step)break;
+      due=new Date(ts);due.setDate(due.getDate()+step);
+    }
+  });
+  state.habits.forEach(h=>{
+    for(let i=0;i<3;i++){
+      const d=new Date();d.setDate(d.getDate()+i);
+      if(!habitActive(h,d))continue;
+      const ts=hTimes(h).slice().sort(),skip=i===0?habitDone(h):0;
+      ts.slice(skip).forEach(tm=>{
+        const a=tm.split(':').map(Number),at=new Date(d);at.setHours(a[0],a[1],0,0);
+        add(h.id+':'+dKey(d)+':'+tm,at.getTime(),(h.emoji||'🎯')+' '+h.title,'Đến giờ rồi · '+tm);
+      });
+    }
+  });
+  out.sort((a,b)=>a.at-b.at);
+  return out.slice(0,300);
+}
+function setPushState(o){store.set(PUSH_STATE,o);const el=document.getElementById('p-pushstate');if(el)showPushState(el)}
+function showPushState(el){
+  const c=pushCfg(),st=store.get(PUSH_STATE,null);
+  if(!c||!c.on){el.textContent='Chưa bật. Cần máy chủ nhắc việc riêng (xem hướng dẫn trong thư mục worker/).';return}
+  if(!st){el.textContent='Đã bật, đang đồng bộ…';return}
+  el.textContent=st.ok?('✅ Đã đồng bộ '+st.count+' lời nhắc lúc '+hm(new Date(st.at))+'.'):('⚠️ '+(st.err||'Chưa đồng bộ được')+'.');
+}
+let pushT=null;
+function pushSync(now){clearTimeout(pushT);pushT=setTimeout(doPushSync,now?0:1500)}
+async function doPushSync(){
+  const c=pushCfg();if(!c||!c.on||!c.url||!c.token)return;
+  try{
+    let sub=null;
+    if('serviceWorker' in navigator&&'PushManager' in window){
+      const reg=await Promise.race([navigator.serviceWorker.ready,new Promise(r=>setTimeout(()=>r(null),3000))]);
+      if(reg)sub=await reg.pushManager.getSubscription();
+    }
+    const r=await fetch(pushBase(c)+'/sync',{method:'POST',headers:authH(c),body:JSON.stringify({subscription:sub?sub.toJSON():undefined,reminders:buildReminders()})});
+    const j=await r.json().catch(()=>({}));
+    setPushState(r.ok?{ok:true,count:j.count,at:Date.now()}:{ok:false,err:r.status===401?'Mã bí mật chưa đúng':(j.error||('Lỗi '+r.status))});
+  }catch(e){setPushState({ok:false,err:'Không kết nối được máy chủ nhắc việc'})}
+}
+async function enablePush(url,token){
+  url=String(url||'').trim().replace(/\/+$/,'');token=String(token||'').trim();
+  if(!/^https:\/\/.+/.test(url))throw new Error('Địa chỉ máy chủ phải bắt đầu bằng https://');
+  if(!token)throw new Error('Hãy nhập mã bí mật');
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const standalone=window.navigator.standalone===true||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
+  if(ios&&!standalone)throw new Error('Trên iPhone, hãy mở Remi từ biểu tượng ở Màn hình chính (Chia sẻ → Thêm vào Màn hình chính) rồi bật lại');
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))throw new Error('Trình duyệt này chưa hỗ trợ thông báo đẩy');
+  const perm=await Notification.requestPermission();
+  if(perm!=='granted')throw new Error('Chưa được cho phép. Vào Cài đặt iPhone → Thông báo → Remi để bật');
+  let kr;try{kr=await fetch(url+'/vapid')}catch(e){throw new Error('Không kết nối được máy chủ')}
+  if(!kr.ok)throw new Error('Máy chủ không trả khóa (kiểm tra địa chỉ)');
+  const pk=(await kr.json()).publicKey;
+  const reg=await navigator.serviceWorker.ready;
+  let sub=await reg.pushManager.getSubscription();
+  if(sub){
+    const cur=sub.options&&sub.options.applicationServerKey?bytesToB64u(new Uint8Array(sub.options.applicationServerKey)):null;
+    if(cur&&cur!==pk){await sub.unsubscribe();sub=null}
+  }
+  if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64uToBytes(pk)});
+  store.set(PUSH_KEY,{url:url,token:token,on:true});
+  await doPushSync();
+  const st=store.get(PUSH_STATE,null);
+  if(!st||!st.ok)throw new Error((st&&st.err)||'Chưa đồng bộ được');
+}
+async function disablePush(){
+  const c=pushCfg();
+  try{
+    if(c&&c.url&&c.token)await fetch(pushBase(c)+'/sync',{method:'POST',headers:authH(c),body:JSON.stringify({reminders:[]})});
+    const reg=await Promise.race([navigator.serviceWorker.ready,new Promise(r=>setTimeout(()=>r(null),2000))]);
+    const sub=reg&&await reg.pushManager.getSubscription();if(sub)await sub.unsubscribe();
+  }catch(e){}
+  store.set(PUSH_KEY,Object.assign({},c||{},{on:false}));store.set(PUSH_STATE,null);
+}
+async function testPush(){
+  const c=pushCfg();if(!c||!c.on)throw new Error('Hãy bật thông báo trước');
+  const r=await fetch(pushBase(c)+'/test',{method:'POST',headers:authH(c)});
+  if(!r.ok)throw new Error(r.status===400?'Chưa có thiết bị đăng ký. Bấm “Bật thông báo” trước':'Máy chủ đẩy báo lỗi '+r.status);
+}
+/* hộp thư: câu nói gửi từ Siri/Phím tắt tới máy chủ, Remi mở ra thì hỏi xác nhận */
+async function checkInbox(){
+  const c=pushCfg();
+  if(!c||!c.on||busy||document.body.classList.contains('sheet-open'))return;
+  try{
+    const r=await fetch(pushBase(c)+'/inbox',{headers:authH(c)});if(!r.ok)return;
+    const it=((await r.json()).items||[])[0];if(!it)return;
+    await fetch(pushBase(c)+'/inbox/ack',{method:'POST',headers:authH(c),body:JSON.stringify({ids:[it.id]})});
+    submit(it.text);
+  }catch(e){}
+}
+const _save=save;save=function(){_save.apply(this,arguments);pushSync()};
+const _close=closeSheet;closeSheet=function(){_close.apply(this,arguments);setTimeout(checkInbox,700)};
+setTimeout(()=>{pushSync(true);checkInbox()},2500);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){pushSync(true);checkInbox()}});
+
 /* start */
 render();tick();
 if(!state.profile)showWelcome();
+(function(){try{const q=(new URLSearchParams(location.search).get('q')||'').trim();if(q&&state.profile){history.replaceState(null,'',location.pathname);setTimeout(()=>submit(q),500)}}catch(e){}})();
 setInterval(tick,15000);
 tickClock();setInterval(tickClock,1000);
 setInterval(render,60000);

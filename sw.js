@@ -1,6 +1,6 @@
 // Service worker: lưu sẵn app để mở được khi không có mạng.
 // Đổi VERSION mỗi lần sửa index.html để điện thoại lấy bản mới.
-const VERSION = 'remi-personal-v1';
+const VERSION = 'remi-personal-v3';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/icons/icon.svg'];
 
 self.addEventListener('install', (e) => {
@@ -31,4 +31,25 @@ self.addEventListener('fetch', (e) => {
       return hit || net;
     }));
   }
+});
+
+// Thông báo đẩy từ máy chủ nhắc việc riêng (worker/).
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) { d = { body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Remi', {
+    body: d.body || '',
+    tag: d.tag || undefined,
+    icon: '/icons/icon-192.png',
+    data: { url: d.url || '/' },
+  }));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    for (const c of list) { if ('focus' in c) return c.focus(); }
+    return self.clients.openWindow(url);
+  }));
 });

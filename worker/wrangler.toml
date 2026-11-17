@@ -1,0 +1,16 @@
+name = "remi-push"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# Chạy mỗi phút để gửi các nhắc đã tới giờ.
+[triggers]
+crons = ["* * * * *"]
+
+# Dán id của KV (lệnh: npx wrangler kv namespace create REMI) vào đây.
+[[kv_namespaces]]
+binding = "REMI"
+id = "DAN_ID_KV_VAO_DAY"
+
+[vars]
+# Đổi thành email của bạn (dịch vụ đẩy của Apple/Google yêu cầu một địa chỉ liên hệ).
+SUBJECT = "mailto:ban@example.com"
