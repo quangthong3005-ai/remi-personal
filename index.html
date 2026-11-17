@@ -1604,6 +1604,9 @@ function openEventsSheet(ev,note){
 (function(){
   const cam=$('#cam'),file=$('#camfile');
   if(!cam||!file)return;
+  /* không có khóa Claude thì ẩn nút ảnh, vì đọc ảnh cần AI */
+  const syncCam=()=>{const on=!!store.get('nhip.aikey','')&&store.get('nhip.aimode','auto')!=='local';cam.hidden=!on;cam.style.display=on?'':'none'};
+  syncCam();setInterval(syncCam,2000);document.addEventListener('visibilitychange',syncCam);
   cam.onclick=()=>file.click();
   file.onchange=async()=>{
     const f=file.files&&file.files[0];file.value='';
