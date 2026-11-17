@@ -2455,11 +2455,16 @@ document.addEventListener('keydown',e=>{
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
   /* iPhone: nhận giọng của trình duyệt hỏi quyền micro lặp đi lặp lại → bỏ nút, dùng micro trên bàn phím hoặc Siri */
-  if(!SR||ios||store.get('nhip.micoff','')==='1'){
-    mic.hidden=true;mic.style.display='none';
-    if(ios)$('#ta').placeholder='Gõ hoặc dán lịch…';
+  if(ios||!SR){
+    /* iPhone: dùng micro của bàn phím (không hỏi quyền lặp lại như nhận giọng trong app) */
+    mic.setAttribute('aria-label','Nói: mở bàn phím rồi bấm micro');
+    mic.addEventListener('click',()=>{
+      const ta=$('#ta');ta.focus();
+      toast('Bấm biểu tượng 🎙 ở góc dưới bàn phím để nói, nói xong bấm Thêm');
+    });
     return;
   }
+  if(store.get('nhip.micoff','')==='1'){mic.style.display='none';return}
   let rec=null,on=false,got=false;
   function stopUi(){on=false;mic.classList.remove('rec');mic.setAttribute('aria-pressed','false')}
   mic.addEventListener('click',()=>{

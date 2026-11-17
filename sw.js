@@ -1,6 +1,6 @@
 // Service worker: lưu sẵn app để mở được khi không có mạng.
 // Đổi VERSION mỗi lần sửa index.html để điện thoại lấy bản mới.
-const VERSION = 'remi-personal-v5';
+const VERSION = 'remi-personal-v6';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/icons/icon.svg'];
 
 self.addEventListener('install', (e) => {
