@@ -82,9 +82,14 @@ button{cursor:pointer}
 .t-rem{background:var(--accent-soft)}.t-cal{background:var(--ai-soft)}.t-hab{background:var(--ok-soft)}
 /* composer bar */
 .composer{margin-top:14px;padding:8px 8px 8px 16px;border-radius:24px}
-.cwrap{display:flex;align-items:center;gap:8px}
+.cwrap{display:flex;align-items:flex-end;gap:8px}
+.cwrap .spark{height:44px}
+.cwrap .cbtns{display:flex;gap:8px;flex:none;align-items:center}
+.cwrap .icon-btn,.cwrap .send{flex:none;display:inline-flex;align-items:center;justify-content:center}
+.cwrap .icon-btn[hidden]{display:none}
+@media (max-width:400px){.cwrap{gap:6px}.cwrap .spark{display:none}.cwrap .cbtns{gap:6px}.cwrap .icon-btn{width:42px;height:44px}.cwrap .send{padding:0 12px}}
 .spark{color:var(--ai);display:grid;place-items:center;flex:none}
-.composer textarea{margin-top:0;min-height:0;height:44px;padding:10px 0;line-height:24px;overflow:hidden;flex:1;min-width:0;width:auto}
+.composer textarea{margin-top:0;min-height:44px;max-height:132px;height:44px;padding:10px 0;line-height:24px;overflow-y:auto;flex:1;min-width:0;width:auto;font-size:16px}
 .cwrap .cbtns{margin-left:0}
 .cwrap .icon-btn{width:44px;height:44px;border-radius:14px}
 .cwrap .send{height:44px;border-radius:14px}
@@ -510,6 +515,7 @@ body.sheet-open .sheet{pointer-events:auto}
 .evtick{display:grid;place-items:center;width:34px;height:46px;flex:none}
 .evtick input{width:22px;height:22px;accent-color:var(--accent)}
 .evmain{flex:1;min-width:0;display:grid;gap:8px}
+.evmain select{width:100%;height:44px;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:0 12px;font-size:16px;min-width:0}
 .evmain input{width:100%;height:44px;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:0 12px;font-size:16px;min-width:0}
 .sbtns .pri:disabled{opacity:.5}
 </style>
@@ -536,7 +542,7 @@ body.sheet-open .sheet{pointer-events:auto}
   <section class="composer" id="composer" aria-label="Nhập việc cần nhớ">
     <div class="cwrap">
       <span class="spark" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7L12 2zm7 12l1 2.9 2.9 1-2.9 1-1 2.9-1-2.9-2.9-1 2.9-1 1-2.9z"/></svg></span>
-      <textarea id="ta" rows="1" aria-label="Nói hoặc gõ điều bạn cần nhớ"></textarea>
+      <textarea id="ta" rows="1" placeholder="Gõ hoặc dán lịch…" enterkeyhint="send" aria-label="Nói hoặc gõ điều bạn cần nhớ"></textarea>
       <div class="cbtns">
         <button class="icon-btn" id="cam" aria-label="Gửi ảnh: lịch hoặc món ăn" type="button">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 012-2h1.5l1.2-2h6.6l1.2 2H18a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"/><circle cx="12" cy="13" r="3.5"/></svg>
@@ -1386,6 +1392,14 @@ let busy=false;
 async function submit(textArg){
   const text=(typeof textArg==='string'?textArg:$('#ta').value).trim();
   if(!text||busy)return;
+  try{
+    const lev=parseScheduleNote(text);
+    if(lev.length&&(lev.length>1||/\n/.test(text)||/hàng tuần|hằng tuần|mỗi tuần/i.test(text))){
+      $('#ta').value='';
+      if(lev.length===1&&lev[0].repeat==='none'){/* để luồng thường xử lý */}
+      return openEventsSheet(lev,'Remi đọc trực tiếp từ ghi chú của bạn');
+    }
+  }catch(e){}
   if(shouldSmart(text)&&store.get('nhip.aimode','auto')!=='local'&&(window.claude||store.get('nhip.aikey',''))){return smartFlow(text,null)}
   return submitSingle(text);
 }
@@ -1420,6 +1434,48 @@ function shouldSmart(t){
   const m=t.match(/\d{1,2}\s*(?:h|giờ|:)\s*\d{0,2}/gi);
   return !!(m&&m.length>=2);
 }
+
+/* ---------- đọc note lịch ngay trên máy (không cần AI) ---------- */
+const DOW={'2':1,'hai':1,'3':2,'ba':2,'4':3,'tư':3,'tu':3,'bốn':3,'5':4,'năm':4,'nam':4,'6':5,'sáu':5,'sau':5,'7':6,'bảy':6,'bay':6,'cn':0,'chủ nhật':0,'chu nhat':0,'8':0};
+function nextDow(dow,H,M){
+  const d=new Date();d.setHours(H,M,0,0);
+  let add=(dow-d.getDay()+7)%7;d.setDate(d.getDate()+add);
+  if(d<=new Date())d.setDate(d.getDate()+7);
+  return d;
+}
+function titleCase(s){return s.replace(/\S+/g,w=>w.charAt(0).toUpperCase()+w.slice(1))}
+function parseScheduleNote(text){
+  const lines=String(text).split(/\n+/).map(x=>x.trim()).filter(Boolean);
+  let head='';const out=[];
+  const tok='(?:2|3|4|5|6|7|8|hai|ba|tư|bốn|năm|sáu|bảy|cn|chủ nhật)';
+  const dayRe=new RegExp('(?:thứ|thu)\\s+((?:'+tok+'(?![\\p{L}\\d])\\s*(?:,|và|&|/|-)?\\s*)+)|(?:^|[^\\p{L}])(chủ nhật|cn)(?![\\p{L}])','iu');
+  const timeRe=/(\d{1,2})\s*(?:h(?![\p{L}])|giờ|:)\s*(\d{2})?(?:\s*(sáng|trưa|chiều|tối))?/iu;
+  for(const raw of lines){
+    const l=raw.toLowerCase();
+    const dm=l.match(dayRe),tm=l.match(timeRe);
+    if(!dm||!tm){ if(!dm&&!tm&&raw.length<40&&!out.length)head=l; continue }
+    let days=[];
+    if(dm[1]){(dm[1].match(new RegExp(tok,'giu'))||[]).forEach(x=>{const v=DOW[x.toLowerCase()];if(v!==undefined&&!days.includes(v))days.push(v)})}
+    else days=[0];
+    if(!days.length)continue;
+    let H=+tm[1],M=tm[2]?+tm[2]:0;
+    if(tm[3]&&/chiều|tối/.test(tm[3])&&H<12)H+=12;
+    if(H>23||M>59)continue;
+    const weekly=/hàng tuần|hằng tuần|mỗi tuần|moi tuan|hang tuan/.test(l);
+    let place='';
+    const pm=raw.match(/(?:^|\s)(?:ở|tại|@)\s+(.+)$/i);
+    if(pm){place=pm[1].replace(/\s*(?:lúc|vào|hàng tuần|hằng tuần|mỗi tuần)\b.*$/i,'').replace(/\s*\d{1,2}\s*(?:h(?![\p{L}])|giờ|:)\s*\d{0,2}.*$/iu,'').replace(/[.,;]+$/,'').trim()}
+    const verb=/làm/.test(head)?'Làm':'';
+    const title=(verb?verb+' · ':'')+(place?titleCase(place):'Lịch')
+    const emoji=/bar|pub|club|cafe|cà phê|quán/i.test(place)?'🍸':(verb?'💼':'📌');
+    for(const d of days){
+      const w=nextDow(d,H,M);
+      out.push({title:title,emoji:emoji,when:toLocal(w),lead:60,repeat:weekly?'weekly':'none'});
+    }
+  }
+  out.sort((a,b)=>a.when<b.when?-1:1);
+  return out;
+}
 function shopTimeFor(cookH,cookM){
   const now=new Date(),d=new Date();
   d.setHours(cookH,cookM,0,0);d.setMinutes(d.getMinutes()-120);
@@ -1435,6 +1491,7 @@ function smartPrompt(text,hasImage){
   const now=new Date();
   return 'Bạn là trợ lý của app quản lý cá nhân “Remi”. Bây giờ là '+WD[now.getDay()]+', '+toLocal(now)+' (giờ địa phương, Việt Nam).\n'+
 (hasImage?'Người dùng gửi kèm MỘT ẢNH':'Người dùng gửi MỘT TIN NHẮN')+(text?' với nội dung chữ:\n"""'+text.replace(/"""/g,'"')+'"""\n':'.\n')+
+'Nếu nội dung nói lặp lại (“hàng tuần”, “mỗi thứ 2”…), thêm "repeat":"weekly" (hoặc "daily") và TÁCH mỗi thứ thành một sự kiện riêng, when là lần SAU bây giờ gần nhất.\n'+
 'Hãy xác định nội dung và trả về DUY NHẤT một JSON hợp lệ (không markdown, không giải thích):\n'+
 '1) Nếu có thông tin LỊCH (lịch học, lịch họp, lịch làm việc, vé, hẹn, thông báo sự kiện, ảnh chụp màn hình tin nhắn...): {"kind":"events","note":"1 câu rất ngắn","events":[{"title":"tên ngắn gọn, kèm địa điểm nếu có","emoji":"1 emoji","when":"YYYY-MM-DDTHH:mm","leadMinutes":0}]}\n'+
 '2) Nếu là ảnh MÓN ĂN hoặc đồ uống: {"kind":"food","dish":"tên món bằng tiếng Việt","emoji":"1 emoji","servings":2,"confidence":"cao|vừa|thấp","note":"1 câu ngắn","checklist":[{"item":"nguyên liệu","qty":"số + đơn vị, ví dụ 500 g, 3 củ"}]} (tối đa 12 nguyên liệu, tính cho 2 người).\n'+
@@ -1495,7 +1552,7 @@ function smartFallback(text){ // không có AI: dùng luồng một câu như tr
 }
 function handleSmart(d,text){
   if(d.kind==='events'&&Array.isArray(d.events)&&d.events.length){
-    const ev=d.events.slice(0,30).map(e=>({title:String(e.title||'Sự kiện').slice(0,80),emoji:e.emoji||'📌',when:(e.when&&!isNaN(new Date(e.when)))?toLocal(new Date(e.when)):toLocal(defaultWhen()),lead:Math.max(0,Math.min(1440,parseInt(e.leadMinutes,10)||0))}));
+    const ev=d.events.slice(0,30).map(e=>({title:String(e.title||'Sự kiện').slice(0,80),emoji:e.emoji||'📌',repeat:(e.repeat==='weekly'||e.repeat==='daily')?e.repeat:'none',when:(e.when&&!isNaN(new Date(e.when)))?toLocal(new Date(e.when)):toLocal(defaultWhen()),lead:Math.max(0,Math.min(1440,parseInt(e.leadMinutes,10)||0))}));
     if(ev.length===1){
       const q=normalize({intent:'task',title:ev[0].title,emoji:ev[0].emoji,when:ev[0].when,leadMinutes:ev[0].lead,shopping:false,assumption:'Đọc từ '+(text?'tin nhắn':'ảnh')+' · kiểm tra lại'},ev[0].title);
       q.engine='claude';return openSheet(q,'ai');
@@ -1521,7 +1578,7 @@ function openEventsSheet(ev,note){
   const sh=$('#sheet');
   let h='<div class="grab"></div><div class="understood"><span aria-hidden="true">📅</span><span>Tìm thấy '+ev.length+' sự kiện'+(note?' · '+esc(note):'')+'. Sửa hoặc bỏ tick mục không cần.</span></div>';
   h+=ev.map((e,i)=>'<div class="evrow" data-i="'+i+'"><label class="evtick"><input type="checkbox" class="ev-on" checked aria-label="Thêm sự kiện này"></label>'+
-    '<div class="evmain"><input class="ev-title" value="'+esc(e.emoji+' '+e.title)+'" aria-label="Tên sự kiện"><input class="ev-when" type="datetime-local" value="'+esc(e.when)+'" aria-label="Ngày giờ"></div></div>').join('');
+    '<div class="evmain"><input class="ev-title" value="'+esc(e.emoji+' '+e.title)+'" aria-label="Tên sự kiện"><input class="ev-when" type="datetime-local" value="'+esc(e.when)+'" aria-label="Ngày giờ"><select class="ev-rep" aria-label="Lặp lại"><option value="none"'+((e.repeat||'none')==='none'?' selected':'')+'>Không lặp</option><option value="daily"'+(e.repeat==='daily'?' selected':'')+'>Mỗi ngày</option><option value="weekly"'+(e.repeat==='weekly'?' selected':'')+'>Mỗi tuần</option></select></div></div>').join('');
   h+='<div class="sbtns"><button class="sec" id="s-cancel" type="button">Huỷ</button><button class="pri" id="s-ok" type="button">Thêm '+ev.length+' sự kiện</button></div>';
   sh.innerHTML=h;
   document.body.classList.add('sheet-open');
@@ -1535,7 +1592,7 @@ function openEventsSheet(ev,note){
     rows.forEach(r=>{
       const e=ev[+r.dataset.i],st=splitTitle(r.querySelector('.ev-title').value,e.emoji);
       const w=r.querySelector('.ev-when').value||e.when;
-      state.tasks.push({id:uid(),title:st.title,emoji:st.emoji,when:w,leadMin:e.lead,repeat:'none',summary:'',checklist:[],tips:[],shop:false,done:false});
+      state.tasks.push({id:uid(),title:st.title,emoji:st.emoji,when:w,leadMin:e.lead,repeat:r.querySelector('.ev-rep').value,summary:'',checklist:[],tips:[],shop:false,done:false});
       if(!first||w<first)first=w;
     });
     if(!rows.length)return;
@@ -2357,7 +2414,8 @@ document.addEventListener('change',e=>{
   const card=el.closest('.task');const chip=card&&card.querySelector('.chip.ai');
   if(chip){const left=t.checklist.filter(c=>!c.done).length;chip.textContent='✨ '+(left?left+' mục cần chuẩn bị':'Đã chuẩn bị xong')}
 });
-$('#send').addEventListener('click',submit);
+$('#send').addEventListener('click',()=>submit());
+$('#ta').addEventListener('input',function(){this.style.height='44px';this.style.height=Math.min(132,this.scrollHeight)+'px'});
 $('#ta').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submit()}});
 $('#scrim').addEventListener('click',closeSheet);
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.matches&&e.target.matches('input[data-in]')){e.preventDefault();addItem(e.target.dataset.in)}});
@@ -2390,19 +2448,35 @@ document.addEventListener('keydown',e=>{
 
 /* voice */
 (function(){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   const mic=$('#mic');
-  if(!SR){mic.style.display='none';return}
-  let rec=null,on=false;
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  /* iPhone: nhận giọng của trình duyệt hỏi quyền micro lặp đi lặp lại → bỏ nút, dùng micro trên bàn phím hoặc Siri */
+  if(!SR||ios||store.get('nhip.micoff','')==='1'){
+    mic.hidden=true;mic.style.display='none';
+    if(ios)$('#ta').placeholder='Gõ hoặc dán lịch…';
+    return;
+  }
+  let rec=null,on=false,got=false;
+  function stopUi(){on=false;mic.classList.remove('rec');mic.setAttribute('aria-pressed','false')}
   mic.addEventListener('click',()=>{
-    if(on&&rec){try{rec.stop()}catch(e){}return}
+    if(on){try{rec.stop()}catch(e){}return}
     try{
-      rec=new SR();rec.lang='vi-VN';rec.interimResults=true;rec.continuous=false;
-      rec.onresult=ev=>{let t='';for(let i=0;i<ev.results.length;i++)t+=ev.results[i][0].transcript;$('#ta').value=t};
-      rec.onend=()=>{on=false;mic.classList.remove('rec');if($('#ta').value.trim())submit()};
-      rec.onerror=()=>{on=false;mic.classList.remove('rec');alertUser('🎙️','Không dùng được micro','Hãy cho phép micro hoặc gõ trực tiếp.')};
-      rec.start();on=true;mic.classList.add('rec');
-    }catch(e){on=false;mic.classList.remove('rec')}
+      rec=new SR();rec.lang='vi-VN';rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=1;got=false;
+      rec.onresult=ev=>{let t='';for(let i=0;i<ev.results.length;i++)t+=ev.results[i][0].transcript;if(t){got=true;$('#ta').value=t}};
+      rec.onerror=ev=>{
+        stopUi();
+        const c=ev&&ev.error;
+        if(c==='not-allowed'||c==='service-not-allowed'){
+          store.set('nhip.micoff','1');mic.style.display='none';
+          alertUser('🎙️','Micro đang bị tắt','Remi sẽ không hỏi lại nữa. Bạn vẫn gõ hoặc dùng micro trên bàn phím được.');
+        }else if(c!=='aborted'&&c!=='no-speech'){
+          alertUser('🎙️','Chưa nghe được','Thử nói lại, hoặc gõ trực tiếp.');
+        }
+      };
+      rec.onend=()=>{const had=got;stopUi();if(had&&$('#ta').value.trim())submit()};
+      rec.start();on=true;mic.classList.add('rec');mic.setAttribute('aria-pressed','true');
+    }catch(e){stopUi()}
   });
 })();
 
