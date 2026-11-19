@@ -1,15 +1,18 @@
 {
-  "name": "Remi – trợ lý cá nhân",
+  "id": "/",
+  "name": "Remi",
   "short_name": "Remi",
+  "description": "Trợ lý nhắc việc và thói quen có AI, gọi đúng tên bạn.",
   "lang": "vi",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#FAFBFF",
-  "theme_color": "#FAFBFF",
+  "orientation": "portrait",
+  "background_color": "#FFF3E8",
+  "theme_color": "#FF6A1F",
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

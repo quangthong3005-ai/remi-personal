@@ -1,55 +1,64 @@
-// Service worker: lưu sẵn app để mở được khi không có mạng.
-// Đổi VERSION mỗi lần sửa index.html để điện thoại lấy bản mới.
-const VERSION = 'remi-personal-v6';
-const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/icons/icon.svg'];
+/* Service worker của Remi: mở app khi mất mạng và nhận thông báo đẩy từ máy chủ. */
+'use strict';
+const CACHE = 'remi-personal-v7';
+const SHELL = ['/', '/css/app.css', '/js/api.js', '/js/qty.js', '/js/local-parse.js', '/js/cal-utils.js', '/js/cal-ui.js', '/js/personal.js', '/js/stats.js', '/js/kitchen.js', '/js/kitchen-ui.js', '/data/dishes.json', '/js/app.js', '/manifest.webmanifest', '/icons/icon.svg'];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
 
+// Có mạng thì lấy bản mới nhất (và lưu lại), mất mạng thì dùng bản đã lưu. API không bao giờ qua cache.
 self.addEventListener('fetch', (e) => {
-  const req = e.request;
-  if (req.method !== 'GET') return;
-  const url = new URL(req.url);
-  // Trang chính: ưu tiên bản mới, không có mạng thì dùng bản đã lưu.
-  if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).then((r) => { const copy = r.clone(); caches.open(VERSION).then((c) => c.put('/', copy)); return r; })
-      .catch(() => caches.match('/')));
-    return;
-  }
-  // Còn lại (biểu tượng, phông chữ): dùng bản đã lưu trước, tải nền để cập nhật.
-  if (url.origin === location.origin || /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname)) {
-    e.respondWith(caches.match(req).then((hit) => {
-      const net = fetch(req).then((r) => { if (r && (r.ok || r.type === 'opaque')) { const copy = r.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); } return r; }).catch(() => hit);
-      return hit || net;
-    }));
-  }
+  const u = new URL(e.request.url);
+  if (e.request.method !== 'GET' || u.origin !== self.location.origin || u.pathname.startsWith('/api/')) return;
+  e.respondWith(
+    fetch(e.request)
+      .then((r) => {
+        if (r.ok) {
+          const copy = r.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy));
+        }
+        return r;
+      })
+      .catch(() => caches.match(e.request).then((m) => m || caches.match('/')))
+  );
 });
 
-// Thông báo đẩy từ máy chủ nhắc việc riêng (worker/).
 self.addEventListener('push', (e) => {
   let d = {};
-  try { d = e.data ? e.data.json() : {}; } catch (_) { d = { body: e.data ? e.data.text() : '' }; }
-  e.waitUntil(self.registration.showNotification(d.title || 'Remi', {
-    body: d.body || '',
-    tag: d.tag || undefined,
-    icon: '/icons/icon-192.png',
-    data: { url: d.url || '/' },
-  }));
+  try { d = e.data ? e.data.json() : {}; } catch (err) { d = { title: 'Remi', body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+      // App đang mở và nhìn thấy: để app tự hiện thông báo trong màn hình, tránh báo hai lần.
+      if (cs.some((c) => c.visibilityState === 'visible')) {
+        cs.forEach((c) => c.postMessage({ type: 'push', title: d.title, body: d.body }));
+        return undefined;
+      }
+      return self.registration.showNotification(d.title || 'Remi', {
+        body: d.body || '',
+        icon: '/icons/icon-192.png',
+        tag: d.tag,
+        data: { url: d.url || '/' },
+      });
+    })
+  );
 });
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const url = (e.notification.data && e.notification.data.url) || '/';
-  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-    for (const c of list) { if ('focus' in c) return c.focus(); }
-    return self.clients.openWindow(url);
-  }));
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+      const c = cs[0];
+      return c ? c.focus() : self.clients.openWindow(url);
+    })
+  );
 });
